@@ -22,7 +22,8 @@ A modular MongoDB instance manager for Linux and Windows. Add, launch, clone, re
 
 ```bash
 # Linux install
-sudo 
+sudo chmod +x ./linux.sh
+./linux.sh
 ```
 
 ```powershell
