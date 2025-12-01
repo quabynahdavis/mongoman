@@ -1,9 +1,9 @@
 
 ---
 
-## 📦 mongoInstance
+## 📦 mongoman - MongoDB Instance Manager
 
-A modular MongoDB instance manager for Linux and Windows. Add, launch, clone, rename, reconfigure, backup, and control multiple MongoDB instances with ease—whether you're using direct process control or systemd services.
+A modular MongoDB instance manager for all UNIX-like systems [Linux, MacOS, BSD] with bash support and Windows. Add, launch, clone, rename, reconfigure, backup, and control multiple MongoDB instances with ease—whether you're using direct process control or systemd services.
 
 ---
 
@@ -91,20 +91,19 @@ mongoInstance -delete dev27018
 
 | Command                  | Description                                      |
 |--------------------------|--------------------------------------------------|
-| `-add name port`         | Add new instance                                |
-| `name`                   | Launch instance directly                        |
-| `-delete name`           | Delete instance and service                     |
-| `-setDefault name`       | Enable as systemd/Windows service               |
-| `-start/-stop/-restart`  | Control systemd/Windows service                 |
-| `-kill name`             | Kill direct process                             |
-| `-rename old new`        | Rename instance and service                     |
-| `-reconfigure name port` | Change port and update service                  |
-| `-clone old new port`    | Clone instance to new name/port                 |
-| `-backup name`           | Create tar.gz or zip backup                     |
-| `-list`                  | List all instances                              |
-| `-status`                | Show running/enabled/dead status                |
-| `-logs name`             | Tail log file live                              |
-| `-info name`             | Show metadata and service status                |
+| `add name port`         | Add new instance                                |
+| `name`                  | Launch instance directly                        |
+| `delete name`           | Delete instance and service                     |
+| `kill name`             | Kill direct process                             |
+| `rename old new`        | Rename instance and service                     |
+| `reconfigure name port` | Change port and update service                  |
+| `clone old new port`    | Clone instance to new name/port                 |
+| `backup name`           | Create tar.gz or zip backup                     |
+| `list`                  | List all instances                              |
+| `status`                | Show running/enabled/dead status                |
+| `logs name`             | Tail log file live                              |
+| `info name`             | Show metadata and service status                |
+| `history name`          | 
 
 ---
 

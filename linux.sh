@@ -13,6 +13,14 @@ check_mongodb_installation() {
     fi
 }
 
+check_jq_installation() {
+    if type -p jq> /dev/null;then
+        echo "✅ Jq is installed"
+    else
+        echo "❗Jq is not installed, please install it and try again"
+    fi
+}
+
 uninstall() {
     echo "Uninstall mongoDB instance manager"
     echo "Please wait"
@@ -97,6 +105,9 @@ startInstallation() {
 start_install_process() {
     echo "😎 Checking MongoDB installation"
     check_mongodb_installation
+
+    echo "Checking Jq installation"
+    check_jq_installation
     
     echo
     
