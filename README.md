@@ -1,140 +1,146 @@
+# 🗄️ mongoman — Cross-Platform MongoDB Instance Manager
 
----
+A modular MongoDB instance manager for **Linux, macOS, BSD, and Windows**. Add, launch, clone, rename, reconfigure, backup, and control multiple MongoDB instances with ease—whether using direct process control or OS-native services (systemd, launchd, Windows Service).
 
-## 📦 mongoman - MongoDB Instance Manager
+## ✨ Features
 
-A modular MongoDB instance manager for all UNIX-like systems [Linux, MacOS, BSD] with bash support and Windows. Add, launch, clone, rename, reconfigure, backup, and control multiple MongoDB instances with ease—whether you're using direct process control or systemd services.
+- **Add** and **launch** MongoDB instances with custom ports
+- **Rename**, **reconfigure**, **clone**, and **delete** instances
+- **OS-native services**: systemd (Linux), launchd (macOS), Windows Service, with BSD fallback
+- **Start/stop/restart** via systemd, launchd, or Windows Service control
+- **View status**, **logs**, and **metadata** for each instance
+- **Compressed backups** of data and metadata (tar.gz / zip)
+- **mongosh shell** integration directly from the CLI
+- **Launch history** tracking with JSON metadata
+- **Cross-platform**: single binary for every OS
 
----
+## 🚀 Quick Start
 
-### 🧠 Features
-
-- Add and launch MongoDB instances with custom ports
-- Rename, reconfigure, clone, and delete instances
-- Enable systemd services for persistent startup (Linux)
-- Start/stop/restart via systemd or direct process control
-- View status, logs, and metadata for each instance
-- Create compressed backups of data and metadata
-- Cross-platform: Bash (Linux) + PowerShell (Windows)
-
----
-## ✅ Installation
+### Installation
 
 ```bash
-# Linux install
-sudo chmod +x ./linux.sh
-./linux.sh
+# Option 1: Build and install from source (requires Go 1.22+)
+./install.sh
+
+# Option 2: Build with Make
+make build && sudo make install
+
+# Option 3: Go install directly
+go install github.com/davisdeveloper/mongoman@latest
 ```
 
+**Windows (PowerShell):**
 ```powershell
-# Windows usage
-# Note: Windows version hasn't been tested (Since I'm a full-time Arch Linux user). Contact me for if any issue or to suggest a fix
-Set-Alias mongoInstance windows\mongoInstance.ps1
+.\install.ps1
 ```
----
 
-### 🚀 Quick Start (Linux)
+### Usage
 
 ```bash
 # Add an instance
-mongoInstance -add dev27018 27018
+mongoman add dev27018 27018
 
 # Launch it directly (forked process)
-mongoInstance dev27018
+mongoman launch dev27018
 
-# Enable as systemd service
-mongoInstance -setDefault dev27018
-
-# View status
-mongoInstance -status
-
-# Tail logs
-mongoInstance -logs dev27018
-
-# Kill direct process
-mongoInstance -kill dev27018
-
-# Delete instance
-mongoInstance -delete dev27018
-```
-
----
-
-### 🖥️ Quick Start (Windows PowerShell)
-
-```powershell
-# Add an instance
-.\mongoInstance.ps1 -add dev27018 27018
-
-# Launch it directly
-.\mongoInstance.ps1 dev27018
-
-# Enable as Windows service
-.\mongoInstance.ps1 -setDefault dev27018
+# Enable as OS service
+mongoman enable dev27018
 
 # View status
-.\mongoInstance.ps1 -status
+mongoman status
 
 # Tail logs
-.\mongoInstance.ps1 -logs dev27018
+mongoman logs dev27018
 
 # Kill direct process
-.\mongoInstance.ps1 -kill dev27018
+mongoman kill dev27018
 
 # Delete instance
-.\mongoInstance.ps1 -delete dev27018
+mongoman delete dev27018
 ```
 
----
+## 📋 Commands
 
-### 🧪 Supported Commands
+| Command | Description |
+|---------|-------------|
+| `add <name> <port>` | Add new instance |
+| `launch <name>` | Launch instance directly (forked) |
+| `kill <name>` | Kill direct process |
+| `delete <name>` | Delete instance and service |
+| `rename <old> <new>` | Rename instance and service |
+| `reconfigure <name> <port>` | Change port and update service |
+| `clone <old> <new> <port>` | Clone instance to new name/port |
+| `backup <name>` | Create compressed backup |
+| `list` | List all instances |
+| `status` | Show running/enabled/dead status |
+| `logs <name>` | Tail log file live |
+| `info <name>` | Show metadata and service status |
+| `history <name>` | Show launch history |
+| `shell <name>` | Launch mongosh for instance |
+| `enable <name>` | Enable as OS service (systemd/launchd/Windows) |
+| `disable <name>` | Disable OS service |
+| `start <name>` | Start OS service |
+| `stop <name>` | Stop OS service |
+| `restart <name>` | Restart OS service |
+| `help` | Show this help message |
 
-| Command                  | Description                                      |
-|--------------------------|--------------------------------------------------|
-| `add name port`         | Add new instance                                |
-| `name`                  | Launch instance directly                        |
-| `delete name`           | Delete instance and service                     |
-| `kill name`             | Kill direct process                             |
-| `rename old new`        | Rename instance and service                     |
-| `reconfigure name port` | Change port and update service                  |
-| `clone old new port`    | Clone instance to new name/port                 |
-| `backup name`           | Create tar.gz or zip backup                     |
-| `list`                  | List all instances                              |
-| `status`                | Show running/enabled/dead status                |
-| `logs name`             | Tail log file live                              |
-| `info name`             | Show metadata and service status                |
-| `history name`          | 
+## 📁 Directory Layout
 
----
+| Content | Unix (Linux/macOS/BSD) | Windows |
+|---------|------------------------|---------|
+| Data | `~/mongoman/data/<name>` | `%USERPROFILE%\mongoman\data\<name>` |
+| Logs | `~/mongoman/logs/<name>.log` | `%USERPROFILE%\mongoman\logs\<name>.log` |
+| Backups | `~/mongoman/backups/` | `%USERPROFILE%\mongoman\backups\` |
+| Config/Meta | `~/.config/mongoman/<name>.json` | `%APPDATA%\mongoman\<name>.json` |
 
-### 📁 File Structure
+## 🛠 Requirements
 
-- Linux metadata: `~/.mongo-meta/instanceName.conf`
-- Linux data: `/data/instanceName`
-- Linux logs: `/data/instanceName/mongod.log`
-- Windows metadata: `%USERPROFILE%\.mongo-meta\instanceName.conf`
-- Windows data: `C:\MongoData\instanceName`
-- Windows logs: `C:\MongoData\instanceName\mongod.log`
-- Backups: `~/mongo-backups` or `%USERPROFILE%\mongo-backups`
+- **MongoDB** installed (`mongod` in PATH)
+- **Go 1.22+** (only for building from source)
+- **Platform-specific**:
+  - Linux: systemd (optional, for service management)
+  - macOS: launchd (built-in)
+  - Windows: PowerShell 5+ (for installer), admin privileges for service control
+  - BSD: direct process control (service management via stub)
 
----
+## 🔧 Building from Source
 
-### 🛠 Requirements
+```bash
+# Build for current platform
+make build
 
-#### Linux
-- MongoDB installed (`mongod` in PATH)
-- Systemd enabled
-- Bash 4+
+# Cross-compile for all supported platforms
+make cross
 
-#### Windows
-- MongoDB installed (`mongod.exe` in PATH)
-- PowerShell 5+ or PowerShell Core
-- Admin privileges for service control
+# Create release archives
+make release
+```
 
----
+### Supported Platforms
 
-### 🧑‍💻 Author
+| OS | Architectures |
+|----|---------------|
+| Linux | amd64, arm64, 386 |
+| macOS | amd64, arm64 (Apple Silicon) |
+| Windows | amd64, 386 |
+| FreeBSD | amd64 |
+| OpenBSD | amd64 |
+| NetBSD | amd64 |
+
+## 📦 Repository Installation (Future)
+
+Since mongoman is a single Go binary, it can be distributed via:
+
+- **Homebrew** (macOS/Linux): `brew install mongoman`
+- **Scoop** (Windows): `scoop install mongoman`
+- **Snap** (Linux): `snap install mongoman`
+- **Direct download**: Pre-built binaries from GitHub Releases
+- **Go install**: `go install github.com/davisdeveloper/mongoman@latest`
+
+## 🧑‍💻 Author
 
 Built by [Davisville](https://github.com/davisdeveloper) — for developers who demand modularity, control, and elegance.
 
----
+## 📄 License
+
+MIT
