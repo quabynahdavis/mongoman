@@ -1,1 +1,16 @@
-extra.md
+# Compiled binaries
+mongoman
+mongoman.exe
+build/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temp
+*.tmp
+*.swp

@@ -1,0 +1,4 @@
+mongodb data dir - $HOME/mongoman/data
+logs - $HOME/mongoman/logs
+backups - $HOME/mongoman/backups
+config - $HOME/.config/mongoman
