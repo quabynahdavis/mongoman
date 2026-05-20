@@ -1,0 +1,155 @@
+# mongoman — Automated Release Pipeline
+#
+# Triggered by pushing a tag matching v*.*.* (e.g., v1.0.0).
+# Builds binaries for all supported platforms and creates a GitHub Release
+# with platform-specific archives.
+#
+# After a release is published:
+#   - Homebrew users: brew tap davisdeveloper/mongoman && brew install mongoman
+#   - Scoop users:    scoop bucket add mongoman https://github.com/davisdeveloper/scoop-mongoman
+#                     scoop install mongoman
+#   - Everyone else:  Download the archive for their platform from the release page
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build and Release
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goos: [linux, darwin, windows, freebsd, openbsd, netbsd]
+        goarch: [amd64]
+        include:
+          - goos: linux
+            goarch: arm64
+          - goos: linux
+            goarch: "386"
+          - goos: darwin
+            goarch: arm64
+          - goos: windows
+            goarch: "386"
+    # Skip 386 for non-Linux/Windows
+    exclude:
+      - goos: darwin
+        goarch: "386"
+      - goos: freebsd
+        goarch: "386"
+      - goos: openbsd
+        goarch: "386"
+      - goos: netbsd
+        goarch: "386"
+      - goos: freebsd
+        goarch: arm64
+      - goos: openbsd
+        goarch: arm64
+      - goos: netbsd
+        goarch: arm64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          check-latest: true
+
+      - name: Build binary
+        shell: bash
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          APP="mongoman"
+          EXT=""
+          if [ "${{ matrix.goos }}" = "windows" ]; then EXT=".exe"; fi
+          CGO_ENABLED=0 go build -ldflags="-s -w -X main.Version=${GITHUB_REF_NAME#v}" \
+            -o "${APP}${EXT}" .
+
+      - name: Create archive
+        shell: bash
+        run: |
+          APP="mongoman"
+          EXT=""
+          if [ "${{ matrix.goos }}" = "windows" ]; then EXT=".exe"; fi
+          ARCHIVE="${APP}_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz"
+          tar -czf "${ARCHIVE}" "${APP}${EXT}" README.md LICENSE 2>/dev/null || \
+            tar -czf "${ARCHIVE}" "${APP}${EXT}"
+          echo "archive=${ARCHIVE}" >> $GITHUB_ENV
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mongoman_${{ matrix.goos }}_${{ matrix.goarch }}
+          path: ${{ env.archive }}
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Generate checksums
+        run: |
+          cd artifacts
+          find . -name '*.tar.gz' -exec echo "{}" \; -exec sha256sum {} \; | tee checksums.txt
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: mongoman ${{ github.ref_name }}
+          body: |
+            ## mongoman ${{ github.ref_name }}
+
+            ### Installation
+
+            **Linux / macOS:**
+            ```bash
+            # Download and extract
+            tar -xzf mongoman_linux_amd64.tar.gz
+            sudo mv mongoman /usr/local/bin/
+            ```
+
+            **Windows:**
+            Extract `mongoman_windows_amd64.tar.gz` and add to PATH.
+
+            **Homebrew (macOS/Linux):**
+            ```bash
+            brew tap davisdeveloper/mongoman
+            brew install mongoman
+            ```
+
+            **Scoop (Windows):**
+            ```powershell
+            scoop bucket add mongoman https://github.com/davisdeveloper/scoop-mongoman
+            scoop install mongoman
+            ```
+
+            **Go install:**
+            ```bash
+            go install github.com/davisdeveloper/mongoman@latest
+            ```
+
+            ### Checksums
+            ```
+            $(cat artifacts/checksums.txt)
+            ```
+          files: artifacts/**/*.tar.gz
+          draft: false
+          prerelease: false
