@@ -1,5 +1,12 @@
 # Logs Changelog
 
+## [1.2.0] — 2026-05-20T05:22:53Z
+
+### Added
+- Third test run log (test-run-003-2026-05-20.md) documenting distribution setup session
+- GitHub Actions release workflow created
+- Homebrew, Scoop, Snap distribution documentation
+
 ## [1.1.0] — 2026-05-20T05:14:40Z
 
 ### Added
