@@ -77,6 +77,7 @@ jobs:
             -o "${APP}${EXT}" .
 
       - name: Create archive
+        id: create_archive
         shell: bash
         run: |
           APP="mongoman"
@@ -93,13 +94,13 @@ jobs:
             tar -czf "${ARCHIVE}" "${APP}${EXT}" README.md LICENSE 2>/dev/null || \
               tar -czf "${ARCHIVE}" "${APP}${EXT}"
           fi
-          echo "archive=${ARCHIVE}" >> $GITHUB_ENV
+          echo "archive=${ARCHIVE}" >> $GITHUB_OUTPUT
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: mongoman-${{ github.event.inputs.version }}-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: ${{ env.archive }}
+          path: ${{ steps.create_archive.outputs.archive }}
 
   packages-linux:
     name: Build Linux Packages (deb, rpm, pacman)
