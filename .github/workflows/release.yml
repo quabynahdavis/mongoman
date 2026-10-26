@@ -26,33 +26,27 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        goos: [linux, darwin, windows, freebsd, openbsd, netbsd]
-        goarch: [amd64]
         include:
+          - goos: linux
+            goarch: amd64
           - goos: linux
             goarch: arm64
           - goos: linux
             goarch: "386"
           - goos: darwin
+            goarch: amd64
+          - goos: darwin
             goarch: arm64
           - goos: windows
+            goarch: amd64
+          - goos: windows
             goarch: "386"
-    # Skip 386 for non-Linux/Windows
-    exclude:
-      - goos: darwin
-        goarch: "386"
-      - goos: freebsd
-        goarch: "386"
-      - goos: openbsd
-        goarch: "386"
-      - goos: netbsd
-        goarch: "386"
-      - goos: freebsd
-        goarch: arm64
-      - goos: openbsd
-        goarch: arm64
-      - goos: netbsd
-        goarch: arm64
+          - goos: freebsd
+            goarch: amd64
+          - goos: openbsd
+            goarch: amd64
+          - goos: netbsd
+            goarch: amd64
 
     steps:
       - name: Checkout
@@ -84,9 +78,17 @@ jobs:
           APP="mongoman"
           EXT=""
           if [ "${{ matrix.goos }}" = "windows" ]; then EXT=".exe"; fi
-          ARCHIVE="${APP}_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz"
-          tar -czf "${ARCHIVE}" "${APP}${EXT}" README.md LICENSE 2>/dev/null || \
-            tar -czf "${ARCHIVE}" "${APP}${EXT}"
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            # Windows: produce a .zip (tar is not guaranteed on bare Windows shells)
+            ARCHIVE="${APP}_${{ matrix.goos }}_${{ matrix.goarch }}.zip"
+            powershell -Command \
+              "Compress-Archive -Path '${APP}${EXT}',README.md,LICENSE -DestinationPath '${ARCHIVE}' -Force"
+          else
+            # Unix: produce a .tar.gz
+            ARCHIVE="${APP}_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz"
+            tar -czf "${ARCHIVE}" "${APP}${EXT}" README.md LICENSE 2>/dev/null || \
+              tar -czf "${ARCHIVE}" "${APP}${EXT}"
+          fi
           echo "archive=${ARCHIVE}" >> $GITHUB_ENV
 
       - name: Upload artifact
@@ -106,9 +108,12 @@ jobs:
           path: artifacts
 
       - name: Generate checksums
+        shell: bash
         run: |
           cd artifacts
-          find . -name '*.tar.gz' -exec echo "{}" \; -exec sha256sum {} \; | tee checksums.txt
+          find . \( -name '*.tar.gz' -o -name '*.zip' \) -print0 \
+            | xargs -0 -I{} sh -c 'echo "{}" && sha256sum "{}"' \
+            | tee checksums.txt
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
@@ -127,7 +132,7 @@ jobs:
             ```
 
             **Windows:**
-            Extract `mongoman_windows_amd64.tar.gz` and add to PATH.
+            Download `mongoman_windows_amd64.zip`, extract it, and add `mongoman.exe` to your PATH.
 
             **Homebrew (macOS/Linux):**
             ```bash
@@ -150,6 +155,6 @@ jobs:
             ```
             $(cat artifacts/checksums.txt)
             ```
-          files: artifacts/**/*.tar.gz
+          files: artifacts/**/*.tar.gz, artifacts/**/*.zip
           draft: false
           prerelease: false
