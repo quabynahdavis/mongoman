@@ -24,7 +24,7 @@ func TestCreateTarGz(t *testing.T) {
 	}
 
 	out := filepath.Join(dir, "out.tar.gz")
-	if err := Create(out, filepath.Join(dir, "data"), "myinst", FormatTarGz); err != nil {
+	if err := Create(out, src, "myinst", FormatTarGz); err != nil {
 		t.Fatalf("Create: %v", err)
 	}
 
@@ -58,7 +58,7 @@ func TestCreateZip(t *testing.T) {
 	}
 
 	out := filepath.Join(dir, "out.zip")
-	if err := Create(out, filepath.Join(dir, "data"), "myinst", FormatZip); err != nil {
+	if err := Create(out, src, "myinst", FormatZip); err != nil {
 		t.Fatalf("Create: %v", err)
 	}
 

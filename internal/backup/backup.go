@@ -22,25 +22,24 @@ const (
 	FormatZip                 // zip (Windows)
 )
 
-// Create archives the instance data directory into dst using the given format.
-// Archive entries are rooted at the instance name (e.g. "myinst/...").
-func Create(dst string, dataDir, name string, format Format) error {
+// Create archives the instance data directory (dbPath) into dst using the
+// given format. Archive entries are rooted at name (e.g. "myinst/...").
+func Create(dst, dbPath, name string, format Format) error {
 	f, err := os.Create(dst)
 	if err != nil {
 		return fmt.Errorf("cannot create archive %s: %w", dst, err)
 	}
 	defer f.Close()
 
-	src := filepath.Join(dataDir, name)
-	if _, err := os.Stat(src); err != nil {
-		return fmt.Errorf("instance data dir %q not found: %w", src, err)
+	if _, err := os.Stat(dbPath); err != nil {
+		return fmt.Errorf("instance data dir %q not found: %w", dbPath, err)
 	}
 
 	switch format {
 	case FormatZip:
-		return writeZip(f, src, name)
+		return writeZip(f, dbPath, name)
 	default:
-		return writeTarGz(f, src, name)
+		return writeTarGz(f, dbPath, name)
 	}
 }
 

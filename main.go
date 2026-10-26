@@ -263,12 +263,11 @@ func cmdBackup(args []string) error {
 		format = backup.FormatZip
 	}
 
-	if err := backup.Create(backupPath, paths.DataDir, name, format); err != nil {
+	if err := backup.Create(backupPath, inst.DBPath, name, format); err != nil {
 		return fmt.Errorf("backup failed: %w", err)
 	}
 
 	fmt.Printf("✅ Backup created: %s\n", backupPath)
-	_ = inst
 	return nil
 }
 
