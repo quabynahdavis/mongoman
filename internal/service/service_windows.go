@@ -54,8 +54,10 @@ func (m *windowsManager) Enable(name string, port int, dbPath, logPath string) e
 func (m *windowsManager) Disable(name string) error {
 	svcName := m.serviceName(name)
 
-	// Stop the service.
-	exec.Command("sc.exe", "stop", svcName).Run()
+	// Stop the service. Failure is non-fatal (service may already be stopped).
+	if err := exec.Command("sc.exe", "stop", svcName).Run(); err != nil {
+		_ = err
+	}
 
 	// Delete the service.
 	if err := exec.Command("sc.exe", "delete", svcName).Run(); err != nil {
