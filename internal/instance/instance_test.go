@@ -59,9 +59,7 @@ func TestCreateLoad(t *testing.T) {
 	if _, err := os.Stat(inst.LogPath); err != nil {
 		t.Errorf("log file not created: %v", err)
 	}
-	if _, err := os.Stat(inst.MetaPath); err != nil {
-		t.Errorf("metadata file not created: %v", err)
-	}
+	// MetaPath no longer exists - metadata is in SQLite
 
 	// Load it back
 	loaded, err := Load(paths, "testinst")
@@ -162,13 +160,7 @@ func TestRename(t *testing.T) {
 	if _, err := os.Stat(paths.DBPath("newname")); err != nil {
 		t.Errorf("new data dir not found: %v", err)
 	}
-	// Metadata file moved
-	if _, err := os.Stat(paths.MetaFile("oldname")); !os.IsNotExist(err) {
-		t.Error("old meta file still exists")
-	}
-	if _, err := os.Stat(paths.MetaFile("newname")); err != nil {
-		t.Errorf("new meta file not found: %v", err)
-	}
+	// Metadata is now in SQLite, not JSON files
 }
 
 func TestDelete(t *testing.T) {
@@ -185,9 +177,7 @@ func TestDelete(t *testing.T) {
 	if _, err := os.Stat(paths.DBPath("todelete")); !os.IsNotExist(err) {
 		t.Error("data dir still exists after delete")
 	}
-	if _, err := os.Stat(paths.MetaFile("todelete")); !os.IsNotExist(err) {
-		t.Error("meta file still exists after delete")
-	}
+	// Metadata is in SQLite, not a JSON file
 }
 
 func TestRecordLaunchAndKill(t *testing.T) {
@@ -200,6 +190,11 @@ func TestRecordLaunchAndKill(t *testing.T) {
 	before := time.Now()
 	if err := inst.RecordLaunch(); err != nil {
 		t.Fatalf("RecordLaunch: %v", err)
+	}
+	// Reload to get updated Meta from SQLite
+	inst, err = Load(paths, "launchkill")
+	if err != nil {
+		t.Fatalf("Load after launch: %v", err)
 	}
 	if inst.Meta.LaunchCount != 1 {
 		t.Errorf("LaunchCount = %d, want 1", inst.Meta.LaunchCount)
@@ -216,6 +211,11 @@ func TestRecordLaunchAndKill(t *testing.T) {
 
 	if err := inst.RecordKill(); err != nil {
 		t.Fatalf("RecordKill: %v", err)
+	}
+	// Reload to get updated Meta from SQLite
+	inst, err = Load(paths, "launchkill")
+	if err != nil {
+		t.Fatalf("Load after kill: %v", err)
 	}
 	if inst.Meta.LaunchHistory[0].End == nil {
 		t.Error("Launch end should be set after RecordKill")

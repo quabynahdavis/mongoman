@@ -1,8 +1,8 @@
 // Package instance manages MongoDB instance metadata and CRUD operations.
+// This is a thin wrapper around the SQLite store for backward compatibility.
 package instance
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/davisdeveloper/mongoman/internal/config"
+	"github.com/davisdeveloper/mongoman/internal/store/sqlite"
 )
 
 // LaunchRecord tracks a single launch session.
@@ -30,138 +31,200 @@ type Metadata struct {
 
 // Instance wraps Metadata together with filesystem paths.
 type Instance struct {
-	Meta     Metadata
-	Paths    *config.Paths
-	MetaPath string
-	DBPath   string
-	LogPath  string
+	ID        int64
+	Name      string
+	Port      int
+	DBPath    string
+	LogPath   string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	DeletedAt *time.Time
+
+	// Meta provides backward compatibility with the old JSON-based API.
+	Meta Metadata
+}
+
+// store holds the SQLite store instance.
+var store *sqlite.Store
+
+// storeConfigDir tracks the config directory used to initialize the store.
+var storeConfigDir string
+
+// initStore initializes the SQLite store if not already done,
+// or re-initializes if the config directory has changed (for tests).
+func initStore(paths *config.Paths) error {
+	if store != nil && storeConfigDir == paths.ConfigDir {
+		return nil
+	}
+	var err error
+	store, err = sqlite.NewStore(paths)
+	if err != nil {
+		return err
+	}
+	storeConfigDir = paths.ConfigDir
+	return nil
 }
 
 // Load reads metadata for a named instance. Returns nil if it does not exist.
 func Load(paths *config.Paths, name string) (*Instance, error) {
-	metaPath := paths.MetaFile(name)
-	data, err := os.ReadFile(metaPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("instance %q not found", name)
-		}
-		return nil, fmt.Errorf("cannot read metadata for %q: %w", name, err)
+	if err := initStore(paths); err != nil {
+		return nil, err
 	}
 
-	var m Metadata
-	if err := json.Unmarshal(data, &m); err != nil {
-		return nil, fmt.Errorf("invalid metadata for %q: %w", name, err)
+	inst, err := store.GetInstanceByName(name)
+	if err != nil {
+		return nil, err
+	}
+
+	// Fetch launch history for Meta.LaunchCount and Meta.LaunchHistory
+	history, _ := store.GetLaunchHistory(inst.ID)
+	launchHistory := make([]LaunchRecord, len(history))
+	for i, h := range history {
+		launchHistory[i] = LaunchRecord{
+			Start: h.StartTime,
+			End:   h.EndTime,
+		}
 	}
 
 	return &Instance{
-		Meta:     m,
-		Paths:    paths,
-		MetaPath: metaPath,
-		DBPath:   paths.DBPath(name),
-		LogPath:  paths.LogPath(name),
+		ID:        inst.ID,
+		Name:      inst.Name,
+		Port:      inst.Port,
+		DBPath:    inst.DBPath,
+		LogPath:   inst.LogPath,
+		CreatedAt: inst.CreatedAt,
+		UpdatedAt: inst.UpdatedAt,
+		DeletedAt: inst.DeletedAt,
+		Meta: Metadata{
+			Name:          inst.Name,
+			Port:          inst.Port,
+			CreatedAt:     inst.CreatedAt,
+			LaunchCount:   len(history),
+			LaunchHistory: launchHistory,
+			DeletedAt:     inst.DeletedAt,
+		},
 	}, nil
 }
 
 // Create initializes a new instance with the given name and port.
 func Create(paths *config.Paths, name string, port int) (*Instance, error) {
-	metaPath := paths.MetaFile(name)
-
-	// Check for conflict.
-	if _, err := os.Stat(metaPath); err == nil {
-		return nil, fmt.Errorf("instance %q already exists", name)
-	}
-
-	now := time.Now()
-	inst := &Instance{
-		Meta: Metadata{
-			Name:      name,
-			Port:      port,
-			CreatedAt: now,
-		},
-		Paths:    paths,
-		MetaPath: metaPath,
-		DBPath:   paths.DBPath(name),
-		LogPath:  paths.LogPath(name),
-	}
-
-	// Create data directory and log file.
-	if err := os.MkdirAll(inst.DBPath, 0o755); err != nil {
-		return nil, fmt.Errorf("cannot create data directory: %w", err)
-	}
-	if err := os.WriteFile(inst.LogPath, []byte{}, 0o644); err != nil {
-		return nil, fmt.Errorf("cannot create log file: %w", err)
-	}
-
-	// Write metadata.
-	if err := inst.save(); err != nil {
+	if err := initStore(paths); err != nil {
 		return nil, err
 	}
 
-	return inst, nil
+	// Check for conflict.
+	if _, err := store.GetInstanceByName(name); err == nil {
+		return nil, fmt.Errorf("instance %q already exists", name)
+	}
+
+	dbPath := paths.DBPath(name)
+	logPath := paths.LogPath(name)
+
+	// Create data directory and log file.
+	if err := os.MkdirAll(dbPath, 0o755); err != nil {
+		return nil, fmt.Errorf("cannot create data directory: %w", err)
+	}
+	if err := os.WriteFile(logPath, []byte{}, 0o644); err != nil {
+		return nil, fmt.Errorf("cannot create log file: %w", err)
+	}
+
+	id, err := store.CreateInstance(name, port, dbPath, logPath)
+	if err != nil {
+		return nil, err
+	}
+
+	inst, err := store.GetInstanceByID(id)
+	if err != nil {
+		return nil, err
+	}
+
+	// Fetch launch history for Meta.LaunchCount and Meta.LaunchHistory
+	history, _ := store.GetLaunchHistory(inst.ID)
+	launchHistory := make([]LaunchRecord, len(history))
+	for i, h := range history {
+		launchHistory[i] = LaunchRecord{
+			Start: h.StartTime,
+			End:   h.EndTime,
+		}
+	}
+
+	return &Instance{
+		ID:        inst.ID,
+		Name:      inst.Name,
+		Port:      inst.Port,
+		DBPath:    inst.DBPath,
+		LogPath:   inst.LogPath,
+		CreatedAt: inst.CreatedAt,
+		UpdatedAt: inst.UpdatedAt,
+		DeletedAt: inst.DeletedAt,
+		Meta: Metadata{
+			Name:          inst.Name,
+			Port:          inst.Port,
+			CreatedAt:     inst.CreatedAt,
+			LaunchCount:   len(history),
+			LaunchHistory: launchHistory,
+			DeletedAt:     inst.DeletedAt,
+		},
+	}, nil
 }
 
-// Exists checks whether an instance's metadata file exists.
+// Exists checks whether an instance's metadata exists in the database (not soft-deleted).
 func Exists(paths *config.Paths, name string) bool {
-	_, err := os.Stat(paths.MetaFile(name))
-	return err == nil
+	if err := initStore(paths); err != nil {
+		return false
+	}
+	inst, err := store.GetInstanceByName(name)
+	if err != nil {
+		return false
+	}
+	return inst.DeletedAt == nil
 }
 
 // RequireExists loads an instance, returning an error if it is missing.
-// It is a thin wrapper around Load for callers that want a concise API.
 func RequireExists(paths *config.Paths, name string) (*Instance, error) {
 	return Load(paths, name)
 }
 
-// save writes the metadata JSON to disk.
-func (inst *Instance) save() error {
-	data, err := json.MarshalIndent(inst.Meta, "", "  ")
-	if err != nil {
-		return fmt.Errorf("cannot marshal metadata: %w", err)
-	}
-	if err := os.WriteFile(inst.MetaPath, data, 0o644); err != nil {
-		return fmt.Errorf("cannot write metadata: %w", err)
-	}
-	return nil
-}
-
 // RecordLaunch adds a launch record and increments the counter.
 func (inst *Instance) RecordLaunch() error {
-	inst.Meta.LaunchCount++
-	inst.Meta.LaunchHistory = append(inst.Meta.LaunchHistory, LaunchRecord{
-		Start: time.Now(),
-	})
-	return inst.save()
+	if store == nil {
+		return fmt.Errorf("store not initialized")
+	}
+	id, err := store.RecordLaunch(inst.ID)
+	if err != nil {
+		return err
+	}
+	inst.ID = id // refresh in case
+	return nil
 }
 
 // RecordKill sets the end time on the most recent launch record.
 func (inst *Instance) RecordKill() error {
-	if len(inst.Meta.LaunchHistory) == 0 {
-		return nil
+	if store == nil {
+		return fmt.Errorf("store not initialized")
 	}
-	now := time.Now()
-	inst.Meta.LaunchHistory[len(inst.Meta.LaunchHistory)-1].End = &now
-	return inst.save()
+	return store.RecordKill(inst.ID)
 }
 
 // MarkDeleted sets the deletion timestamp.
 func (inst *Instance) MarkDeleted() error {
+	if store == nil {
+		return fmt.Errorf("store not initialized")
+	}
 	now := time.Now()
-	inst.Meta.DeletedAt = &now
-	return inst.save()
+	inst.DeletedAt = &now
+	return nil // Store handles this via DeleteInstance
 }
 
 // Rename changes the instance name and moves metadata & data on disk.
 func Rename(paths *config.Paths, oldName, newName string) error {
-	inst, err := RequireExists(paths, oldName)
-	if err != nil {
+	if err := initStore(paths); err != nil {
 		return err
 	}
 
-	// Move metadata file.
-	oldMeta := paths.MetaFile(oldName)
-	newMeta := paths.MetaFile(newName)
-	if err := os.Rename(oldMeta, newMeta); err != nil {
-		return fmt.Errorf("cannot rename metadata: %w", err)
+	_, err := Load(paths, oldName)
+	if err != nil {
+		return err
 	}
 
 	// Move data directory.
@@ -171,27 +234,36 @@ func Rename(paths *config.Paths, oldName, newName string) error {
 		return fmt.Errorf("cannot rename data directory: %w", err)
 	}
 
-	// Update the metadata in-place.
-	inst.Meta.Name = newName
-	inst.MetaPath = newMeta
-	inst.DBPath = newDB
-	inst.LogPath = paths.LogPath(newName)
-	return inst.save()
+	// Update the database record.
+	if err := store.RenameInstance(oldName, newName); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // Reconfigure updates the port number for an instance.
 func Reconfigure(paths *config.Paths, name string, newPort int) error {
-	inst, err := RequireExists(paths, name)
-	if err != nil {
+	if err := initStore(paths); err != nil {
 		return err
 	}
-	inst.Meta.Port = newPort
-	return inst.save()
+
+	// Verify instance exists
+	if _, err := Load(paths, name); err != nil {
+		return err
+	}
+
+	return store.UpdateInstancePort(name, newPort)
 }
 
 // Clone copies an instance's data and creates new metadata.
 func Clone(paths *config.Paths, srcName, dstName string, port int) error {
-	if _, err := Load(paths, srcName); err != nil {
+	if err := initStore(paths); err != nil {
+		return err
+	}
+
+	_, err := Load(paths, srcName)
+	if err != nil {
 		return fmt.Errorf("source instance %q not found: %w", srcName, err)
 	}
 
@@ -203,30 +275,36 @@ func Clone(paths *config.Paths, srcName, dstName string, port int) error {
 		return fmt.Errorf("cannot clone data directory: %w", err)
 	}
 
-	// Create new metadata.
-	_, err := Create(paths, dstName, port)
+	// Create new metadata in SQLite.
+	_, err = Create(paths, dstName, port)
 	return err
 }
 
-// ListAll returns all instance names found in the config directory.
+// ListAll returns all instance names found in the database.
 func ListAll(paths *config.Paths) ([]string, error) {
-	entries, err := os.ReadDir(paths.ConfigDir)
-	if err != nil {
-		return nil, fmt.Errorf("cannot read config directory: %w", err)
+	if err := initStore(paths); err != nil {
+		return nil, err
 	}
 
-	var names []string
-	for _, e := range entries {
-		if !e.IsDir() && len(e.Name()) > 5 && e.Name()[len(e.Name())-5:] == ".json" {
-			names = append(names, e.Name()[:len(e.Name())-5])
-		}
+	instances, err := store.ListInstances()
+	if err != nil {
+		return nil, err
+	}
+
+	names := make([]string, len(instances))
+	for i, inst := range instances {
+		names[i] = inst.Name
 	}
 	return names, nil
 }
 
-// Delete removes instance data and optionally marks metadata as deleted.
+// Delete removes instance data and marks metadata as deleted.
 func Delete(paths *config.Paths, name string) error {
-	inst, err := RequireExists(paths, name)
+	if err := initStore(paths); err != nil {
+		return err
+	}
+
+	inst, err := Load(paths, name)
 	if err != nil {
 		return err
 	}
@@ -236,12 +314,8 @@ func Delete(paths *config.Paths, name string) error {
 		return fmt.Errorf("cannot remove data directory: %w", err)
 	}
 
-	// Remove metadata file (optional: keep for history).
-	if err := os.Remove(inst.MetaPath); err != nil {
-		return fmt.Errorf("cannot remove metadata: %w", err)
-	}
-
-	return nil
+	// Soft delete in database.
+	return store.DeleteInstance(name)
 }
 
 // copyDir recursively copies a directory from src to dst using pure Go,
