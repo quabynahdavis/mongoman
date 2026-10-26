@@ -97,7 +97,7 @@ jobs:
           echo "archive=${ARCHIVE}" >> $GITHUB_OUTPUT
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4.3.4
         with:
           name: mongoman-${{ github.event.inputs.version }}-${{ matrix.goos }}-${{ matrix.goarch }}
           path: ${{ steps.create_archive.outputs.archive }}
