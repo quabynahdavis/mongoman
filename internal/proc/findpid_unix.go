@@ -8,9 +8,13 @@ import (
 	"strings"
 )
 
-// findPIDByPortImpl locates a mongod process listening on the given port
+func init() {
+	findPIDByPortImpl = findPIDByPortUnix
+}
+
+// findPIDByPortUnix locates a mongod process listening on the given port
 // using pgrep to match the command line.
-func findPIDByPortImpl(port string) (int, error) {
+func findPIDByPortUnix(port string) (int, error) {
 	cmd := exec.Command("pgrep", "-f", "mongod.*--port "+port)
 	output, err := cmd.Output()
 	if err != nil {

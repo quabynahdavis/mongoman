@@ -74,8 +74,15 @@ func IsRunning(inst *instance.Instance) bool {
 	return err == nil
 }
 
+// findPIDByPortImpl is the platform-specific implementation of PID lookup.
+// It is set by the build-tagged files (findpid_unix.go, findpid_windows.go).
+var findPIDByPortImpl func(port string) (int, error)
+
 // findPIDByPort locates the mongod process listening on the given port.
 // The actual implementation is provided per-platform in findpid_*.go.
 func findPIDByPort(port string) (int, error) {
+	if findPIDByPortImpl == nil {
+		return 0, errProcessNotFound
+	}
 	return findPIDByPortImpl(port)
 }

@@ -8,9 +8,13 @@ import (
 	"strings"
 )
 
-// findPIDByPortImpl locates a mongod process listening on the given port
+func init() {
+	findPIDByPortImpl = findPIDByPortWindows
+}
+
+// findPIDByPortWindows locates a mongod process listening on the given port
 // by querying Win32_Process via PowerShell and matching the command line.
-func findPIDByPortImpl(port string) (int, error) {
+func findPIDByPortWindows(port string) (int, error) {
 	// Match mongod processes whose command line contains --port <port>.
 	cmd := exec.Command(
 		"powershell",
