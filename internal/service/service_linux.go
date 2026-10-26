@@ -40,7 +40,7 @@ Restart=on-failure
 
 [Install]
 WantedBy=multi-user.target
-`, name, port, dbPath, logPath, dbPath, dbPath, os.Getenv("USER"))
+`, name, port, dbPath, logPath, dbPath, dbPath, getUID())
 
 	path := m.servicePath(name)
 	if err := os.WriteFile(path, []byte(unit), 0o644); err != nil {
@@ -119,11 +119,10 @@ func (m *systemdManager) IsEnabled(name string) bool {
 	return exec.Command("systemctl", "is-enabled", "--quiet", svcName).Run() == nil
 }
 
-// getUID returns the numeric user ID (helper for systemd unit).
+// getUID returns the numeric user ID for the systemd User= directive.
 func getUID() string {
 	return strconv.Itoa(os.Getuid())
 }
 
 // Ensure compatibility with the interface.
 var _ Manager = (*systemdManager)(nil)
-

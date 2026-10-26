@@ -4,7 +4,9 @@ package instance
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/davisdeveloper/mongoman/internal/config"
@@ -187,12 +189,14 @@ func Reconfigure(paths *config.Paths, name string, newPort int) error {
 
 // Clone copies an instance's data and creates new metadata.
 func Clone(paths *config.Paths, srcName, dstName string, port int) error {
-	_ = RequireExists(paths, srcName)
+	if _, err := Load(paths, srcName); err != nil {
+		return fmt.Errorf("source instance %q not found: %w", srcName, err)
+	}
 
 	srcDB := paths.DBPath(srcName)
 	dstDB := paths.DBPath(dstName)
 
-	// Copy data directory using platform cp.
+	// Copy data directory using a pure-Go recursive copy (cross-platform).
 	if err := copyDir(srcDB, dstDB); err != nil {
 		return fmt.Errorf("cannot clone data directory: %w", err)
 	}
@@ -235,11 +239,68 @@ func Delete(paths *config.Paths, name string) error {
 	return nil
 }
 
-// copyDir recursively copies a directory via shell (cross-platform).
+// copyDir recursively copies a directory from src to dst using pure Go,
+// preserving file modes. Cross-platform — no shell commands required.
 func copyDir(src, dst string) error {
-	// Use os/exec to call platform-native copy commands.
-	// For a pure-Go approach we could implement recursive copy, but
-	// shell commands are simpler and more reliable for large MongoDB data dirs.
-	// This is handled in the command layer instead.
+	srcInfo, err := os.Stat(src)
+	if err != nil {
+		return fmt.Errorf("cannot stat source %s: %w", src, err)
+	}
+	if !srcInfo.IsDir() {
+		return fmt.Errorf("source %q is not a directory", src)
+	}
+
+	if err := os.MkdirAll(dst, srcInfo.Mode()); err != nil {
+		return fmt.Errorf("cannot create destination %s: %w", dst, err)
+	}
+
+	entries, err := os.ReadDir(src)
+	if err != nil {
+		return fmt.Errorf("cannot read source directory %s: %w", src, err)
+	}
+
+	for _, entry := range entries {
+		srcPath := filepath.Join(src, entry.Name())
+		dstPath := filepath.Join(dst, entry.Name())
+
+		if entry.IsDir() {
+			if err := copyDir(srcPath, dstPath); err != nil {
+				return err
+			}
+			continue
+		}
+
+		if err := copyFile(srcPath, dstPath); err != nil {
+			return fmt.Errorf("cannot copy %s: %w", srcPath, err)
+		}
+	}
 	return nil
+}
+
+// copyFile copies a single regular file from src to dst, preserving mode.
+func copyFile(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return fmt.Errorf("cannot open source %s: %w", src, err)
+	}
+	defer in.Close()
+
+	out, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
+	if err != nil {
+		return fmt.Errorf("cannot create destination %s: %w", dst, err)
+	}
+	defer out.Close()
+
+	if _, err := io.Copy(out, in); err != nil {
+		return fmt.Errorf("cannot copy contents of %s: %w", src, err)
+	}
+
+	// Preserve source file mode.
+	if info, err := os.Stat(src); err == nil {
+		if chmodErr := out.Chmod(info.Mode()); chmodErr != nil {
+			// Non-fatal: mode may not be settable on all filesystems.
+			_ = chmodErr
+		}
+	}
+	return out.Sync()
 }

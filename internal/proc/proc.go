@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
-	"strings"
 
 	"github.com/davisdeveloper/mongoman/internal/instance"
 )
@@ -67,24 +66,8 @@ func IsRunning(inst *instance.Instance) bool {
 	return err == nil
 }
 
-// findPIDByPort searches for a mongod process listening on the given port.
-// Uses pgrep on Unix, Get-Process on Windows.
+// findPIDByPort locates the mongod process listening on the given port.
+// The actual implementation is provided per-platform in findpid_*.go.
 func findPIDByPort(port string) (int, error) {
-	// Strategy: use pgrep to find mongod processes, then filter by --port argument.
-	cmd := exec.Command("pgrep", "-f", fmt.Sprintf("mongod.*--port %s", port))
-	output, err := cmd.Output()
-	if err != nil {
-		return 0, fmt.Errorf("process not found")
-	}
-
-	lines := strings.Fields(string(output))
-	if len(lines) == 0 {
-		return 0, fmt.Errorf("process not found")
-	}
-
-	pid, err := strconv.Atoi(lines[0])
-	if err != nil {
-		return 0, fmt.Errorf("invalid PID: %w", err)
-	}
-	return pid, nil
+	return findPIDByPortImpl(port)
 }

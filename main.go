@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -213,28 +214,18 @@ func cmdClone(args []string) error {
 		return fmt.Errorf("invalid port number: %s", args[2])
 	}
 
-	srcInst := instance.RequireExists(paths, srcName)
-	srcDB := paths.DBPath(srcName)
-	dstDB := paths.DBPath(dstName)
-
-	// Copy data directory.
-	if err := copyDir(srcDB, dstDB); err != nil {
-		return fmt.Errorf("cannot clone data directory: %w", err)
-	}
-
-	// Create new metadata.
-	_, err = instance.Create(paths, dstName, port)
-	if err != nil {
+	// Clone data + metadata in one call (pure-Go recursive copy).
+	if err := instance.Clone(paths, srcName, dstName, port); err != nil {
 		return err
 	}
 
 	// Clone service if original has one.
 	if svcMgr.IsEnabled(srcName) {
+		dstDB := paths.DBPath(dstName)
 		svcMgr.Enable(dstName, port, dstDB, paths.LogPath(dstName))
 	}
 
 	fmt.Printf("Cloned %q to %q (port %d)\n", srcName, dstName, port)
-	_ = srcInst // used for validation above
 	return nil
 }
 
@@ -394,8 +385,18 @@ func cmdShell(args []string) error {
 	}
 
 	port := strconv.Itoa(inst.Meta.Port)
-	fmt.Printf("🚀 Launching mongosh for %q (port %s)\n", name, port)
-	cmd := exec.Command("mongosh", "--port", port)
+
+	// Prefer mongosh; fall back to the legacy mongo shell if mongosh is absent.
+	shell, err := exec.LookPath("mongosh")
+	if err != nil {
+		shell, err = exec.LookPath("mongo")
+		if err != nil {
+			return fmt.Errorf("neither mongosh nor mongo found in PATH")
+		}
+	}
+
+	fmt.Printf("🚀 Launching %s for %q (port %s)\n", filepath.Base(shell), name, port)
+	cmd := exec.Command(shell, "--port", port)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -484,20 +485,5 @@ Directory Layout:
   Config:   ~/.config/mongoman/<name>.json  (or %%APPDATA%% on Windows)`)
 }
 
-// copyDir copies a directory recursively using platform-native commands.
-func copyDir(src, dst string) error {
-	var cmd *exec.Cmd
-	// Use cp on Unix, robocopy on Windows.
-	if isWindows() {
-		cmd = exec.Command("robocopy", src, dst, "/E", "/NFL", "/NDL", "/NJH", "/NJS")
-	} else {
-		cmd = exec.Command("cp", "-a", src, dst)
-	}
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
-}
-
-func isWindows() bool {
-	return len(os.Getenv("SYSTEMROOT")) > 0 && strings.HasPrefix(os.Getenv("SYSTEMROOT"), "C:\\")
-}
+// (copyDir is now implemented in internal/instance/instance.go as a pure-Go
+// recursive copy, so cmdClone delegates to instance.Clone.)
