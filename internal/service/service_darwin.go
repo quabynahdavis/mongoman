@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"os/user"
 	"path/filepath"
 )
 
@@ -138,6 +137,3 @@ func init() {
 	home, _ := os.UserHomeDir()
 	os.MkdirAll(filepath.Join(home, "Library", "LaunchAgents"), 0o755)
 }
-
-// Import used by build tag but referenced indirectly.
-var _ = user.Current

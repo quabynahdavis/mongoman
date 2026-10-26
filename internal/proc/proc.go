@@ -20,16 +20,24 @@ func Launch(inst *instance.Instance) error {
 		"--bind_ip", "localhost",
 		"--logpath", inst.LogPath,
 	}
-
-	// --fork is only available on Unix; on Windows we use START /B semantics.
-	// We let mongod decide; if --fork fails, the user sees the error.
-	args = append(args, "--fork")
+	// --fork is only available on Unix; on Windows mongod stays attached.
+	args = append(args, forkArgs()...)
 
 	cmd := exec.Command("mongod", args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	if err := cmd.Run(); err != nil {
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("failed to launch mongod for %q: %w", inst.Meta.Name, err)
+	}
+
+	// On Windows mongod does not fork itself, so detach by releasing the
+	// child process handle. On Unix --fork already daemonized the process.
+	if !forkedByMongod() {
+		if err := cmd.Process.Release(); err != nil {
+			return fmt.Errorf("failed to detach mongod process for %q: %w", inst.Meta.Name, err)
+		}
+	} else if err := cmd.Wait(); err != nil {
 		return fmt.Errorf("failed to launch mongod for %q: %w", inst.Meta.Name, err)
 	}
 

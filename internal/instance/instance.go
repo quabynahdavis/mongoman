@@ -106,14 +106,10 @@ func Exists(paths *config.Paths, name string) bool {
 	return err == nil
 }
 
-// RequireExists is a convenience helper that exits on missing instances.
-func RequireExists(paths *config.Paths, name string) *Instance {
-	inst, err := Load(paths, name)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
-	return inst
+// RequireExists loads an instance, returning an error if it is missing.
+// It is a thin wrapper around Load for callers that want a concise API.
+func RequireExists(paths *config.Paths, name string) (*Instance, error) {
+	return Load(paths, name)
 }
 
 // save writes the metadata JSON to disk.
@@ -156,7 +152,10 @@ func (inst *Instance) MarkDeleted() error {
 
 // Rename changes the instance name and moves metadata & data on disk.
 func Rename(paths *config.Paths, oldName, newName string) error {
-	inst := RequireExists(paths, oldName)
+	inst, err := RequireExists(paths, oldName)
+	if err != nil {
+		return err
+	}
 
 	// Move metadata file.
 	oldMeta := paths.MetaFile(oldName)
@@ -182,7 +181,10 @@ func Rename(paths *config.Paths, oldName, newName string) error {
 
 // Reconfigure updates the port number for an instance.
 func Reconfigure(paths *config.Paths, name string, newPort int) error {
-	inst := RequireExists(paths, name)
+	inst, err := RequireExists(paths, name)
+	if err != nil {
+		return err
+	}
 	inst.Meta.Port = newPort
 	return inst.save()
 }
@@ -224,7 +226,10 @@ func ListAll(paths *config.Paths) ([]string, error) {
 
 // Delete removes instance data and optionally marks metadata as deleted.
 func Delete(paths *config.Paths, name string) error {
-	inst := RequireExists(paths, name)
+	inst, err := RequireExists(paths, name)
+	if err != nil {
+		return err
+	}
 
 	// Remove data directory.
 	if err := os.RemoveAll(inst.DBPath); err != nil {

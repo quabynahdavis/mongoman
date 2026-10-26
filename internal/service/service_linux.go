@@ -66,13 +66,21 @@ WantedBy=multi-user.target
 func (m *systemdManager) Disable(name string) error {
 	svcName := m.serviceName(name)
 
-	// Stop and disable.
-	exec.Command("systemctl", "stop", svcName).Run()
-	exec.Command("systemctl", "disable", svcName).Run()
+	// Stop and disable. Errors here are non-fatal (service may already be gone).
+	if err := exec.Command("systemctl", "stop", svcName).Run(); err != nil {
+		_ = err
+	}
+	if err := exec.Command("systemctl", "disable", svcName).Run(); err != nil {
+		_ = err
+	}
 
 	// Remove unit file.
-	os.Remove(m.servicePath(name))
-	exec.Command("systemctl", "daemon-reload").Run()
+	if err := os.Remove(m.servicePath(name)); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("cannot remove systemd unit: %w", err)
+	}
+	if err := exec.Command("systemctl", "daemon-reload").Run(); err != nil {
+		return fmt.Errorf("systemctl daemon-reload failed: %w", err)
+	}
 
 	fmt.Printf("Disabled systemd service %s\n", svcName)
 	return nil

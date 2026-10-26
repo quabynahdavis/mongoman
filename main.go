@@ -12,11 +12,13 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/davisdeveloper/mongoman/internal/backup"
 	"github.com/davisdeveloper/mongoman/internal/config"
 	"github.com/davisdeveloper/mongoman/internal/instance"
 	"github.com/davisdeveloper/mongoman/internal/proc"
@@ -132,7 +134,10 @@ func cmdLaunch(args []string) error {
 		return fmt.Errorf("usage: mongoman launch <name>")
 	}
 	name := args[0]
-	inst := instance.RequireExists(paths, name)
+	inst, err := instance.RequireExists(paths, name)
+	if err != nil {
+		return err
+	}
 	return proc.Launch(inst)
 }
 
@@ -142,7 +147,10 @@ func cmdKill(args []string) error {
 		return fmt.Errorf("usage: mongoman kill <name>")
 	}
 	name := args[0]
-	inst := instance.RequireExists(paths, name)
+	inst, err := instance.RequireExists(paths, name)
+	if err != nil {
+		return err
+	}
 	return proc.Kill(inst)
 }
 
@@ -168,7 +176,10 @@ func cmdRename(args []string) error {
 
 	// If service was enabled, recreate it with new name.
 	if svcMgr.IsEnabled(oldName) {
-		oldInst := instance.RequireExists(paths, newName)
+		oldInst, err := instance.RequireExists(paths, newName)
+		if err != nil {
+			return err
+		}
 		svcMgr.Disable(oldName)
 		svcMgr.Enable(newName, oldInst.Meta.Port, oldInst.DBPath, oldInst.LogPath)
 	}
@@ -194,7 +205,10 @@ func cmdReconfigure(args []string) error {
 
 	// Update service if enabled.
 	if svcMgr.IsEnabled(name) {
-		inst := instance.RequireExists(paths, name)
+		inst, err := instance.RequireExists(paths, name)
+		if err != nil {
+			return err
+		}
 		svcMgr.Disable(name)
 		svcMgr.Enable(name, inst.Meta.Port, inst.DBPath, inst.LogPath)
 	}
@@ -235,16 +249,21 @@ func cmdBackup(args []string) error {
 		return fmt.Errorf("usage: mongoman backup <name>")
 	}
 	name := args[0]
-	inst := instance.RequireExists(paths, name)
+	inst, err := instance.RequireExists(paths, name)
+	if err != nil {
+		return err
+	}
 
 	timestamp := time.Now().Format("20060102150405")
 	backupPath := paths.BackupPath(name, timestamp)
 
-	// Create a tar.gz of the data directory.
-	cmd := exec.Command("tar", "-czf", backupPath, "-C", paths.DataDir, name)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
+	// Choose archive format based on platform (zip on Windows, tar.gz elsewhere).
+	format := backup.FormatTarGz
+	if runtime.GOOS == "windows" {
+		format = backup.FormatZip
+	}
+
+	if err := backup.Create(backupPath, paths.DataDir, name, format); err != nil {
 		return fmt.Errorf("backup failed: %w", err)
 	}
 
@@ -317,7 +336,9 @@ func cmdLogs(args []string) error {
 		return fmt.Errorf("usage: mongoman logs <name>")
 	}
 	name := args[0]
-	_ = instance.RequireExists(paths, name)
+	if _, err := instance.RequireExists(paths, name); err != nil {
+		return err
+	}
 
 	logPath := paths.LogPath(name)
 	if _, err := os.Stat(logPath); os.IsNotExist(err) {
@@ -337,7 +358,10 @@ func cmdInfo(args []string) error {
 		return fmt.Errorf("usage: mongoman info <name>")
 	}
 	name := args[0]
-	inst := instance.RequireExists(paths, name)
+	inst, err := instance.RequireExists(paths, name)
+	if err != nil {
+		return err
+	}
 
 	status := svcMgr.Status(name)
 	if status == service.StatusStopped {
@@ -362,7 +386,7 @@ func cmdHistory(args []string) error {
 		return fmt.Errorf("usage: mongoman history <name>")
 	}
 	name := args[0]
-	inst := instance.RequireExists(paths, name)
+	inst, err := instance.RequireExists(paths, name)
 
 	data, err := json.MarshalIndent(inst.Meta, "", "  ")
 	if err != nil {
@@ -378,7 +402,7 @@ func cmdShell(args []string) error {
 		return fmt.Errorf("usage: mongoman shell <name>")
 	}
 	name := args[0]
-	inst := instance.RequireExists(paths, name)
+	inst, err := instance.RequireExists(paths, name)
 
 	if !proc.IsRunning(inst) {
 		return fmt.Errorf("instance %q is not running. Launch it first", name)
@@ -411,7 +435,10 @@ func cmdEnable(args []string) error {
 		return fmt.Errorf("usage: mongoman enable <name>")
 	}
 	name := args[0]
-	inst := instance.RequireExists(paths, name)
+	inst, err := instance.RequireExists(paths, name)
+	if err != nil {
+		return err
+	}
 	return svcMgr.Enable(name, inst.Meta.Port, inst.DBPath, inst.LogPath)
 }
 
