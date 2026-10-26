@@ -1,0 +1,8 @@
+#!/bin/bash
+# post_install script for mongoman pacman package
+
+systemctl daemon-reload > /dev/null 2>&1 || true
+systemctl enable mongoman > /dev/null 2>&1 || true
+systemctl start mongoman > /dev/null 2>&1 || true
+
+exit 0

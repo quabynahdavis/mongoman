@@ -1,0 +1,16 @@
+[Unit]
+Description=MongoDB Instance Manager
+After=network.target mongod.service
+Wants=mongod.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/mongoman
+Restart=on-failure
+RestartSec=5
+User=root
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

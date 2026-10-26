@@ -1,14 +1,10 @@
 # mongoman — Automated Release Pipeline
 #
-# Triggered by pushing a tag matching v*.*.* (e.g., v1.0.0).
+# Triggered manually via workflow_dispatch with version input.
 # Builds binaries for all supported platforms and creates a GitHub Release
-# with platform-specific archives.
+# with platform-specific archives and Linux packages (deb, rpm, pacman).
 #
-# After a release is published:
-#   - Homebrew users: brew tap quabynahdavis/mongoman && brew install mongoman
-#   - Scoop users:    scoop bucket add mongoman https://github.com/quabynahdavis/scoop-mongoman
-#                     scoop install mongoman
-#   - Everyone else:  Download the archive for their platform from the release page
+# To release: Go to Actions > Release > Run workflow > enter version (e.g., v0.0.1)
 
 name: Release
 
@@ -86,14 +82,14 @@ jobs:
           APP="mongoman"
           EXT=""
           if [ "${{ matrix.goos }}" = "windows" ]; then EXT=".exe"; fi
+          VERSION="${{ github.event.inputs.version }}"
+          # Naming: mongoman-version-os-arch.file_format
           if [ "${{ matrix.goos }}" = "windows" ]; then
-            # Windows: produce a .zip (tar is not guaranteed on bare Windows shells)
-            ARCHIVE="${APP}_${{ matrix.goos }}_${{ matrix.goarch }}.zip"
+            ARCHIVE="${APP}-${VERSION#v}-${{ matrix.goos }}-${{ matrix.goarch }}.zip"
             powershell -Command \
               "Compress-Archive -Path '${APP}${EXT}',README.md,LICENSE -DestinationPath '${ARCHIVE}' -Force"
           else
-            # Unix: produce a .tar.gz
-            ARCHIVE="${APP}_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz"
+            ARCHIVE="${APP}-${VERSION#v}-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz"
             tar -czf "${ARCHIVE}" "${APP}${EXT}" README.md LICENSE 2>/dev/null || \
               tar -czf "${ARCHIVE}" "${APP}${EXT}"
           fi
@@ -102,12 +98,103 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: mongoman_${{ matrix.goos }}_${{ matrix.goarch }}
+          name: mongoman-${{ github.event.inputs.version }}-${{ matrix.goos }}-${{ matrix.goarch }}
           path: ${{ env.archive }}
+
+  packages-linux:
+    name: Build Linux Packages (deb, rpm, pacman)
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          check-latest: true
+
+      - name: Install fpm
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ruby ruby-dev build-essential rpm
+          sudo gem install fpm --no-document
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Build Linux packages
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          # Extract binaries for linux/amd64 and linux/arm64
+          for arch in amd64 arm64; do
+            binary="artifacts/mongoman_linux_${arch}/mongoman"
+            if [ -f "$binary" ]; then
+              chmod +x "$binary"
+              # Build deb
+              fpm -s dir -t deb \
+                -n mongoman -v "${VERSION#v}" \
+                --architecture "$arch" \
+                --description "Cross-platform MongoDB Instance Manager" \
+                --maintainer "quabynahdavis <quabynahdavis@github.com>" \
+                --license MIT \
+                --url "https://github.com/quabynahdavis/mongoman" \
+                --depends mongodb-org \
+                --after-install packaging/deb/postinst \
+                --before-remove packaging/deb/prerm \
+                "$binary=/usr/bin/mongoman" \
+                packaging/deb/mongoman.service=/lib/systemd/system/mongoman.service \
+                README.md=/usr/share/doc/mongoman/README.md \
+                LICENSE=/usr/share/doc/mongoman/LICENSE \
+                -p "mongoman_${VERSION#v}_${arch}.deb" || true
+              # Build rpm
+              fpm -s dir -t rpm \
+                -n mongoman -v "${VERSION#v}" \
+                --architecture "$arch" \
+                --description "Cross-platform MongoDB Instance Manager" \
+                --maintainer "quabynahdavis <quabynahdavis@github.com>" \
+                --license MIT \
+                --url "https://github.com/quabynahdavis/mongoman" \
+                --depends mongodb-org \
+                --after-install packaging/rpm/postinst \
+                --before-remove packaging/rpm/prerm \
+                "$binary=/usr/bin/mongoman" \
+                packaging/rpm/mongoman.service=/usr/lib/systemd/system/mongoman.service \
+                README.md=/usr/share/doc/mongoman/README.md \
+                LICENSE=/usr/share/doc/mongoman/LICENSE \
+                -p "mongoman-${VERSION#v}-1.${arch}.rpm" || true
+              # Build pacman
+              fpm -s dir -t pacman \
+                -n mongoman -v "${VERSION#v}" \
+                --architecture "$arch" \
+                --description "Cross-platform MongoDB Instance Manager" \
+                --maintainer "quabynahdavis <quabynahdavis@github.com>" \
+                --license MIT \
+                --url "https://github.com/quabynahdavis/mongoman" \
+                --depends mongodb \
+                --after-install packaging/pacman/post_install \
+                --before-remove packaging/pacman/pre_remove \
+                "$binary=/usr/bin/mongoman" \
+                packaging/pacman/mongoman.service=/usr/lib/systemd/system/mongoman.service \
+                README.md=/usr/share/doc/mongoman/README.md \
+                LICENSE=/usr/share/doc/mongoman/LICENSE \
+                -p "mongoman-${VERSION#v}-1-${arch}.pkg.tar.zst" || true
+          done
+
+      - name: Upload package artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-packages
+          path: "*.deb *.rpm *.pkg.tar.zst"
 
   release:
     name: Create Release
-    needs: build
+    needs: [build, packages-linux]
     runs-on: ubuntu-latest
     steps:
       - name: Download all artifacts
@@ -119,7 +206,7 @@ jobs:
         shell: bash
         run: |
           cd artifacts
-          find . \( -name '*.tar.gz' -o -name '*.zip' \) -print0 \
+          find . \( -name '*.tar.gz' -o -name '*.zip' -o -name '*.deb' -o -name '*.rpm' -o -name '*.pkg.tar.zst' \) -print0 \
             | xargs -0 -I{} sh -c 'echo "{}" && sha256sum "{}"' \
             | tee checksums.txt
 
@@ -143,6 +230,25 @@ jobs:
             **Windows:**
             Download `mongoman_windows_amd64.zip`, extract it, and add `mongoman.exe` to your PATH.
 
+            **Linux Packages (Debian/Ubuntu):**
+            ```bash
+            sudo dpkg -i mongoman_${{ github.event.inputs.version }}_amd64.deb
+            # or
+            sudo apt install ./mongoman_${{ github.event.inputs.version }}_amd64.deb
+            ```
+
+            **Linux Packages (RHEL/Fedora/CentOS):**
+            ```bash
+            sudo rpm -i mongoman-${{ github.event.inputs.version }}_amd64.rpm
+            # or
+            sudo dnf install ./mongoman-${{ github.event.inputs.version }}_amd64.rpm
+            ```
+
+            **Linux Packages (Arch/Manjaro):**
+            ```bash
+            sudo pacman -U mongoman-${{ github.event.inputs.version }}-1-x86_64.pkg.tar.zst
+            ```
+
             **Homebrew (macOS/Linux):**
             ```bash
             brew tap quabynahdavis/mongoman
@@ -164,6 +270,6 @@ jobs:
             ```
             $(cat artifacts/checksums.txt)
             ```
-          files: artifacts/**/*.tar.gz, artifacts/**/*.zip
+          files: artifacts/**/*.tar.gz, artifacts/**/*.zip, artifacts/**/*.deb, artifacts/**/*.rpm, artifacts/**/*.pkg.tar.zst
           draft: false
           prerelease: false

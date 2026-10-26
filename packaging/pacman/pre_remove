@@ -1,0 +1,8 @@
+#!/bin/bash
+# pre_remove script for mongoman pacman package
+
+systemctl stop mongoman > /dev/null 2>&1 || true
+systemctl disable mongoman > /dev/null 2>&1 || true
+systemctl daemon-reload > /dev/null 2>&1 || true
+
+exit 0

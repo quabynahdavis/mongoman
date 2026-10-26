@@ -81,6 +81,82 @@ release: cross
 	done
 	@echo "✅ Release archives created in $(OUTPUT)/"
 
+# ── Linux packages (deb, rpm, pacman) ─────────────────────────────────────────
+# Requires: fpm (gem install fpm) or native tools (dpkg-deb, rpmbuild, makepkg)
+LINUX_PKG_ARCHS := amd64 arm64
+LINUX_PKG_FORMATS := deb rpm pacman
+
+.PHONY: packages-linux
+packages-linux: cross
+	@for arch in $(LINUX_PKG_ARCHS); do \
+		binary="$(OUTPUT)/linux/$$arch/$(APP)"; \
+		if [ ! -f "$$binary" ]; then \
+			echo "Binary not found: $$binary"; \
+			continue; \
+		fi; \
+		for fmt in $(LINUX_PKG_FORMATS); do \
+			echo "Building $$fmt package for $$arch..."; \
+			case $$fmt in \
+				deb) \
+					fpm -s dir -t deb \
+						-n $(APP) -v $(VERSION) \
+						--architecture $$arch \
+						--description "Cross-platform MongoDB Instance Manager" \
+						--maintainer "quabynahdavis <quabynahdavis@github.com>" \
+						--license MIT \
+						--url "https://github.com/quabynahdavis/mongoman" \
+						--depends mongodb-org \
+						--after-install packaging/deb/postinst \
+						--before-remove packaging/deb/prerm \
+						$$binary=/usr/bin/$(APP) \
+						packaging/deb/$(APP).service=/lib/systemd/system/$(APP).service \
+						README.md=/usr/share/doc/$(APP)/README.md \
+						LICENSE=/usr/share/doc/$(APP)/LICENSE \
+						-p $(OUTPUT)/$(APP)_$(VERSION)_$$arch.deb || true; \
+					;; \
+				rpm) \
+					fpm -s dir -t rpm \
+						-n $(APP) -v $(VERSION) \
+						--architecture $$arch \
+						--description "Cross-platform MongoDB Instance Manager" \
+						--maintainer "quabynahdavis <quabynahdavis@github.com>" \
+						--license MIT \
+						--url "https://github.com/quabynahdavis/mongoman" \
+						--depends mongodb-org \
+						--after-install packaging/rpm/postinst \
+						--before-remove packaging/rpm/prerm \
+						$$binary=/usr/bin/$(APP) \
+						packaging/rpm/$(APP).service=/usr/lib/systemd/system/$(APP).service \
+						README.md=/usr/share/doc/$(APP)/README.md \
+						LICEICE=/usr/share/doc/$(APP)/LICENSE \
+						-p $(OUTPUT)/$(APP)-$(VERSION)-1.$(if [ "$$arch" = "amd64" ]; then echo "x86_64"; else echo "aarch64"; fi).rpm || true; \
+					;; \
+				pacman) \
+					fpm -s dir -t pacman \
+						-n $(APP) -v $(VERSION) \
+						--architecture $$arch \
+						--description "Cross-platform MongoDB Instance Manager" \
+						--maintainer "quabynahdavis <quabynahdavis@github.com>" \
+						--license MIT \
+						--url "https://github.com/quabynahdavis/mongoman" \
+						--depends mongodb \
+						--after-install packaging/pacman/post_install \
+						--before-remove packaging/pacman/pre_remove \
+						$$binary=/usr/bin/$(APP) \
+						packaging/pacman/$(APP).service=/usr/lib/systemd/system/$(APP).service \
+						README.md=/usr/share/doc/$(APP)/README.md \
+						LICENSE=/usr/share/doc/$(APP)/LICENSE \
+						-p $(OUTPUT)/$(APP)-$(VERSION)-1-$(if [ "$$arch" = "amd64" ]; then echo "x86_64"; else echo "aarch64"; fi).pkg.tar.zst || true; \
+					;; \
+			esac; \
+		done; \
+	done
+	@echo "✅ Linux packages created in $(OUTPUT)/"
+
+.PHONY: packages
+packages: packages-linux
+	@echo "✅ All packages created in $(OUTPUT)/"
+
 # ── Help ──────────────────────────────────────────────────────────────────────
 .PHONY: help
 help:
