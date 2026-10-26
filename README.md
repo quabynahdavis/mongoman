@@ -1,6 +1,10 @@
 # 🗄️ mongoman — Cross-Platform MongoDB Instance Manager
 
-A modular MongoDB instance manager for **Linux, macOS, BSD, and Windows**. Add, launch, clone, rename, reconfigure, backup, and control multiple MongoDB instances with ease—whether using direct process control or OS-native services (systemd, launchd, Windows Service).
+![Version](https://img.shields.io/badge/version-v0.0.1-blue)
+![Go Version](https://img.shields.io/badge/Go-1.26+-00ADD8)
+![License](https://img.shields.io/badge/License-MIT-green)
+
+A modular MongoDB instance manager for **Linux, macOS, BSD, and Windows**. Add, launch, clone, rename, reconfigure, backup, and control multiple MongoDB instances with ease—whether using direct process control or OS-native services (systemd, launchd, Windows Service). Now with **SQLite-backed metadata** for reliable launch history and instance management.
 
 ## ✨ Features
 
@@ -11,7 +15,8 @@ A modular MongoDB instance manager for **Linux, macOS, BSD, and Windows**. Add, 
 - **View status**, **logs**, and **metadata** for each instance
 - **Compressed backups** of data and metadata (tar.gz / zip)
 - **mongosh shell** integration directly from the CLI
-- **Launch history** tracking with JSON metadata
+- **Launch history** tracking with SQLite persistence
+- **SQLite-backed metadata** — atomic operations, automatic migration from JSON
 - **Cross-platform**: single binary for every OS
 
 ## 🚀 Quick Start
@@ -91,7 +96,7 @@ mongoman delete dev27018
 | Data | `~/mongoman/data/<name>` | `%USERPROFILE%\mongoman\data\<name>` |
 | Logs | `~/mongoman/logs/<name>.log` | `%USERPROFILE%\mongoman\logs\<name>.log` |
 | Backups | `~/mongoman/backups/` | `%USERPROFILE%\mongoman\backups\` |
-| Config/Meta | `~/.config/mongoman/<name>.json` | `%APPDATA%\mongoman\<name>.json` |
+| Config/Meta (SQLite) | `~/.config/mongoman/mongoman.db` | `%APPDATA%\mongoman\mongoman.db` |
 
 ## 🛠 Requirements
 
