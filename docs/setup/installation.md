@@ -47,7 +47,7 @@ sudo make install # Install to /usr/local/bin
 ### Method 4: Go Install
 
 ```bash
-go install github.com/davisdeveloper/mongoman@latest
+go install github.com/quabynahdavis/mongoman@latest
 ```
 
 ## Cross-Compilation

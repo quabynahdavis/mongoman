@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/davisdeveloper/mongoman/internal/config"
+	"github.com/quabynahdavis/mongoman/internal/config"
 )
 
 func newTestPaths(t *testing.T) *config.Paths {

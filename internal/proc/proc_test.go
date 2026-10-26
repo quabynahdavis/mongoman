@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/davisdeveloper/mongoman/internal/config"
-	"github.com/davisdeveloper/mongoman/internal/instance"
+	"github.com/quabynahdavis/mongoman/internal/config"
+	"github.com/quabynahdavis/mongoman/internal/instance"
 )
 
 // mockInstance returns a test instance with the given port and unique name.

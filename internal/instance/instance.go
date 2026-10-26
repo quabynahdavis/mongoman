@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/davisdeveloper/mongoman/internal/config"
-	"github.com/davisdeveloper/mongoman/internal/store/sqlite"
+	"github.com/quabynahdavis/mongoman/internal/config"
+	"github.com/quabynahdavis/mongoman/internal/store/sqlite"
 )
 
 // LaunchRecord tracks a single launch session.

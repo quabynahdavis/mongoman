@@ -18,11 +18,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davisdeveloper/mongoman/internal/backup"
-	"github.com/davisdeveloper/mongoman/internal/config"
-	"github.com/davisdeveloper/mongoman/internal/instance"
-	"github.com/davisdeveloper/mongoman/internal/proc"
-	"github.com/davisdeveloper/mongoman/internal/service"
+	"github.com/quabynahdavis/mongoman/internal/backup"
+	"github.com/quabynahdavis/mongoman/internal/config"
+	"github.com/quabynahdavis/mongoman/internal/instance"
+	"github.com/quabynahdavis/mongoman/internal/proc"
+	"github.com/quabynahdavis/mongoman/internal/service"
 )
 
 var (

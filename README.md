@@ -26,7 +26,7 @@ A modular MongoDB instance manager for **Linux, macOS, BSD, and Windows**. Add, 
 make build && sudo make install
 
 # Option 3: Go install directly
-go install github.com/davisdeveloper/mongoman@latest
+go install github.com/quabynahdavis/mongoman@latest
 ```
 
 **Windows (PowerShell):**
@@ -135,11 +135,11 @@ Since mongoman is a single Go binary, it can be distributed via:
 - **Scoop** (Windows): `scoop install mongoman`
 - **Snap** (Linux): `snap install mongoman`
 - **Direct download**: Pre-built binaries from GitHub Releases
-- **Go install**: `go install github.com/davisdeveloper/mongoman@latest`
+- **Go install**: `go install github.com/quabynahdavis/mongoman@latest`
 
 ## 🧑‍💻 Author
 
-Built by [Davisville](https://github.com/davisdeveloper) — for developers who demand modularity, control, and elegance.
+Built by [Davisville](https://github.com/quabynahdavis) — for developers who demand modularity, control, and elegance.
 
 ## 📄 License
 

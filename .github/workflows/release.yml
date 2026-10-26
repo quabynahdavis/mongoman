@@ -5,8 +5,8 @@
 # with platform-specific archives.
 #
 # After a release is published:
-#   - Homebrew users: brew tap davisdeveloper/mongoman && brew install mongoman
-#   - Scoop users:    scoop bucket add mongoman https://github.com/davisdeveloper/scoop-mongoman
+#   - Homebrew users: brew tap quabynahdavis/mongoman && brew install mongoman
+#   - Scoop users:    scoop bucket add mongoman https://github.com/quabynahdavis/scoop-mongoman
 #                     scoop install mongoman
 #   - Everyone else:  Download the archive for their platform from the release page
 
@@ -136,19 +136,19 @@ jobs:
 
             **Homebrew (macOS/Linux):**
             ```bash
-            brew tap davisdeveloper/mongoman
+            brew tap quabynahdavis/mongoman
             brew install mongoman
             ```
 
             **Scoop (Windows):**
             ```powershell
-            scoop bucket add mongoman https://github.com/davisdeveloper/scoop-mongoman
+            scoop bucket add mongoman https://github.com/quabynahdavis/scoop-mongoman
             scoop install mongoman
             ```
 
             **Go install:**
             ```bash
-            go install github.com/davisdeveloper/mongoman@latest
+            go install github.com/quabynahdavis/mongoman@latest
             ```
 
             ### Checksums

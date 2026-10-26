@@ -10,7 +10,7 @@ import (
 
 	_ "modernc.org/sqlite"
 
-	"github.com/davisdeveloper/mongoman/internal/config"
+	"github.com/quabynahdavis/mongoman/internal/config"
 )
 
 // Store wraps the SQLite database and provides CRUD for instances.

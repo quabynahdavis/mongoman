@@ -1,4 +1,4 @@
-module github.com/davisdeveloper/mongoman
+module github.com/quabynahdavis/mongoman
 
 go 1.26.0
 
