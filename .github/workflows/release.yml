@@ -13,9 +13,16 @@
 name: Release
 
 on:
-  push:
-    tags:
-      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag to release (e.g., v0.0.1)'
+        required: true
+        type: string
+      tag_name:
+        description: 'Git tag to build from (default: HEAD)'
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -69,7 +76,8 @@ jobs:
           APP="mongoman"
           EXT=""
           if [ "${{ matrix.goos }}" = "windows" ]; then EXT=".exe"; fi
-          CGO_ENABLED=0 go build -ldflags="-s -w -X main.Version=${GITHUB_REF_NAME#v}" \
+          VERSION="${{ github.event.inputs.version }}"
+          CGO_ENABLED=0 go build -ldflags="-s -w -X main.Version=${VERSION#v}" \
             -o "${APP}${EXT}" .
 
       - name: Create archive
@@ -118,9 +126,10 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          name: mongoman ${{ github.ref_name }}
+          tag_name: ${{ github.event.inputs.version }}
+          name: mongoman ${{ github.event.inputs.version }}
           body: |
-            ## mongoman ${{ github.ref_name }}
+            ## mongoman ${{ github.event.inputs.version }}
 
             ### Installation
 
