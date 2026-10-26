@@ -66,13 +66,13 @@ lint:
 
 # ── Release archives ──────────────────────────────────────────────────────────
 .PHONY: release
-release: cross
+release: cross packages-linux
 	@for dir in $(OUTPUT)/*/*/; do \
 		os=$$(echo $$dir | cut -d'/' -f2); \
 		arch=$$(echo $$dir | cut -d'/' -f3); \
 		ext=""; \
 		if [ "$$os" = "windows" ]; then ext=".exe"; fi; \
-		archive="$(OUTPUT)/$(APP)_$${os}_$${arch}.tar.gz"; \
+		archive="$(OUTPUT)/$(APP)-${VERSION}-${os}-${arch}.tar.gz"; \
 		echo "Packaging $$os/$$arch -> $$archive"; \
 		cp README.md "$$dir/"; \
 		cp LICENSE "$$dir/" 2>/dev/null || true; \
@@ -99,7 +99,7 @@ packages-linux: cross
 			case $$fmt in \
 				deb) \
 					fpm -s dir -t deb \
-						-n $(APP) -v $(VERSION) \
+						-n mongoman -v $(VERSION) \
 						--architecture $$arch \
 						--description "Cross-platform MongoDB Instance Manager" \
 						--maintainer "quabynahdavis <quabynahdavis@github.com>" \
@@ -108,15 +108,15 @@ packages-linux: cross
 						--depends mongodb-org \
 						--after-install packaging/deb/postinst \
 						--before-remove packaging/deb/prerm \
-						$$binary=/usr/bin/$(APP) \
-						packaging/deb/$(APP).service=/lib/systemd/system/$(APP).service \
-						README.md=/usr/share/doc/$(APP)/README.md \
-						LICENSE=/usr/share/doc/$(APP)/LICENSE \
+						$$binary=/usr/bin/mongoman \
+						packaging/deb/mongoman.service=/lib/systemd/system/mongoman.service \
+						README.md=/usr/share/doc/mongoman/README.md \
+						LICENSE=/usr/share/doc/mongoman/LICENSE \
 						-p $(OUTPUT)/$(APP)_$(VERSION)_$$arch.deb || true; \
 					;; \
 				rpm) \
 					fpm -s dir -t rpm \
-						-n $(APP) -v $(VERSION) \
+						-n mongoman -v $(VERSION) \
 						--architecture $$arch \
 						--description "Cross-platform MongoDB Instance Manager" \
 						--maintainer "quabynahdavis <quabynahdavis@github.com>" \
@@ -125,15 +125,15 @@ packages-linux: cross
 						--depends mongodb-org \
 						--after-install packaging/rpm/postinst \
 						--before-remove packaging/rpm/prerm \
-						$$binary=/usr/bin/$(APP) \
-						packaging/rpm/$(APP).service=/usr/lib/systemd/system/$(APP).service \
-						README.md=/usr/share/doc/$(APP)/README.md \
-						LICEICE=/usr/share/doc/$(APP)/LICENSE \
-						-p $(OUTPUT)/$(APP)-$(VERSION)-1.$(if [ "$$arch" = "amd64" ]; then echo "x86_64"; else echo "aarch64"; fi).rpm || true; \
+						$$binary=/usr/bin/mongoman \
+						packaging/rpm/mongoman.service=/usr/lib/systemd/system/mongoman.service \
+						README.md=/usr/share/doc/mongoman/README.md \
+						LICENSE=/usr/share/doc/mongoman/LICENSE \
+						-p $(OUTPUT)/$(APP)-$(VERSION)-1.$(if $(filter amd64,$$arch),x86_64,aarch64).rpm || true; \
 					;; \
 				pacman) \
 					fpm -s dir -t pacman \
-						-n $(APP) -v $(VERSION) \
+						-n mongoman -v $(VERSION) \
 						--architecture $$arch \
 						--description "Cross-platform MongoDB Instance Manager" \
 						--maintainer "quabynahdavis <quabynahdavis@github.com>" \
@@ -142,11 +142,11 @@ packages-linux: cross
 						--depends mongodb \
 						--after-install packaging/pacman/post_install \
 						--before-remove packaging/pacman/pre_remove \
-						$$binary=/usr/bin/$(APP) \
-						packaging/pacman/$(APP).service=/usr/lib/systemd/system/$(APP).service \
-						README.md=/usr/share/doc/$(APP)/README.md \
-						LICENSE=/usr/share/doc/$(APP)/LICENSE \
-						-p $(OUTPUT)/$(APP)-$(VERSION)-1-$(if [ "$$arch" = "amd64" ]; then echo "x86_64"; else echo "aarch64"; fi).pkg.tar.zst || true; \
+						$$binary=/usr/bin/mongoman \
+						packaging/pacman/mongoman.service=/usr/lib/systemd/system/mongoman.service \
+						README.md=/usr/share/doc/mongoman/README.md \
+						LICENSE=/usr/share/doc/mongoman/LICENSE \
+						-p $(OUTPUT)/$(APP)-$(VERSION)-1-$(if $(filter amd64,$$arch),x86_64,aarch64).pkg.tar.zst || true; \
 					;; \
 			esac; \
 		done; \
@@ -161,11 +161,12 @@ packages: packages-linux
 .PHONY: help
 help:
 	@echo "Targets:"
-	@echo "  build    - Build for current platform"
-	@echo "  cross    - Cross-compile for all supported platforms"
-	@echo "  install  - Install to /usr/local/bin"
-	@echo "  clean    - Remove build output"
-	@echo "  test     - Run tests"
-	@echo "  lint     - Run golangci-lint"
-	@echo "  release  - Create release archives for all platforms"
-	@echo "  help     - Show this message"
+	@echo "  build         - Build for current platform"
+	@echo "  cross         - Cross-compile for all supported platforms"
+	@echo "  install       - Install to /usr/local/bin"
+	@echo "  clean         - Remove build output"
+	@echo "  test          - Run tests"
+	@echo "  lint          - Run golangci-lint"
+	@echo "  release       - Create release archives and Linux packages"
+	@echo "  packages-linux - Create deb, rpm, pacman packages for linux"
+	@echo "  help          - Show this message"
