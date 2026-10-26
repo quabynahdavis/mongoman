@@ -1,7 +1,7 @@
 # mongoman — Cross-platform build system
 #
 # Builds a single static binary for each target platform.
-# Output: build/<os>/<arch>/mongoman[.exe]
+# Output: build/mongoman-version-os-arch[.exe]
 
 APP      := mongoman
 MODULE   := github.com/quabynahdavis/mongoman
@@ -32,10 +32,8 @@ cross:
 		arch=$$(echo $$platform | cut -d'/' -f2); \
 		ext=""; \
 		if [ "$$os" = "windows" ]; then ext=".exe"; fi; \
-		dirname="$(OUTPUT)/$$os/$$arch"; \
-		mkdir -p $$dirname; \
 		echo "Building for $$os/$$arch..."; \
-		GOOS=$$os GOARCH=$$arch CGO_ENABLED=0 go build $(LDFLAGS) -o "$$dirname/$(APP)$$ext" .; \
+		GOOS=$$os GOARCH=$$arch CGO_ENABLED=0 go build $(LDFLAGS) -o "$(OUTPUT)/$(APP)-${VERSION}-$$os-$$arch$$ext" .; \
 	done
 	@echo "✅ Cross-compilation complete. Output in $(OUTPUT)/"
 
@@ -67,17 +65,14 @@ lint:
 # ── Release archives ──────────────────────────────────────────────────────────
 .PHONY: release
 release: cross packages-linux
-	@for dir in $(OUTPUT)/*/*/; do \
-		os=$$(echo $$dir | cut -d'/' -f2); \
-		arch=$$(echo $$dir | cut -d'/' -f3); \
-		ext=""; \
-		if [ "$$os" = "windows" ]; then ext=".exe"; fi; \
-		archive="$(OUTPUT)/$(APP)-${VERSION}-${os}-${arch}.tar.gz"; \
-		echo "Packaging $$os/$$arch -> $$archive"; \
-		cp README.md "$$dir/"; \
-		cp LICENSE "$$dir/" 2>/dev/null || true; \
-		cd "$$dir" && tar -czf "../../../$$archive" "$(APP)$$ext" README.md LICENSE 2>/dev/null; \
-		cd ../../..; \
+	@for f in $(OUTPUT)/$(APP)-${VERSION}-*; do \
+		base=$$(basename $$f); \
+		ext=$${base##*.}; \
+		if [ "$$ext" = "exe" ]; then continue; fi; \
+		if [ "$$ext" = "deb" ] || [ "$$ext" = "rpm" ] || [ "$$ext" = "zst" ]; then continue; fi; \
+		archive="$$f.tar.gz"; \
+		echo "Packaging $$f -> $$archive"; \
+		tar -czf "$$archive" $$f README.md LICENSE 2>/dev/null; \
 	done
 	@echo "✅ Release archives created in $(OUTPUT)/"
 
@@ -89,7 +84,7 @@ LINUX_PKG_FORMATS := deb rpm pacman
 .PHONY: packages-linux
 packages-linux: cross
 	@for arch in $(LINUX_PKG_ARCHS); do \
-		binary="$(OUTPUT)/linux/$$arch/$(APP)"; \
+		binary="$(OUTPUT)/mongoman-${VERSION}-linux-$$arch"; \
 		if [ ! -f "$$binary" ]; then \
 			echo "Binary not found: $$binary"; \
 			continue; \
@@ -108,11 +103,11 @@ packages-linux: cross
 						--depends mongodb-org \
 						--after-install packaging/deb/postinst \
 						--before-remove packaging/deb/prerm \
-						$$binary=/usr/bin/mongoman \
+						"$(OUTPUT)/mongoman-${VERSION}-linux-$$arch=/usr/bin/mongoman" \
 						packaging/deb/mongoman.service=/lib/systemd/system/mongoman.service \
 						README.md=/usr/share/doc/mongoman/README.md \
 						LICENSE=/usr/share/doc/mongoman/LICENSE \
-						-p $(OUTPUT)/$(APP)_$(VERSION)_$$arch.deb || true; \
+						-p $(OUTPUT)/mongoman-${VERSION}_$$arch.deb || true; \
 					;; \
 				rpm) \
 					fpm -s dir -t rpm \
@@ -125,11 +120,11 @@ packages-linux: cross
 						--depends mongodb-org \
 						--after-install packaging/rpm/postinst \
 						--before-remove packaging/rpm/prerm \
-						$$binary=/usr/bin/mongoman \
+						"$(OUTPUT)/mongoman-${VERSION}-linux-$$arch=/usr/bin/mongoman" \
 						packaging/rpm/mongoman.service=/usr/lib/systemd/system/mongoman.service \
 						README.md=/usr/share/doc/mongoman/README.md \
 						LICENSE=/usr/share/doc/mongoman/LICENSE \
-						-p $(OUTPUT)/$(APP)-$(VERSION)-1.$(if $(filter amd64,$$arch),x86_64,aarch64).rpm || true; \
+						-p $(OUTPUT)/mongoman-${VERSION}-1.$(if $(filter amd64,$$arch),x86_64,aarch64).rpm || true; \
 					;; \
 				pacman) \
 					fpm -s dir -t pacman \
@@ -142,11 +137,11 @@ packages-linux: cross
 						--depends mongodb \
 						--after-install packaging/pacman/post_install \
 						--before-remove packaging/pacman/pre_remove \
-						$$binary=/usr/bin/mongoman \
+						"$(OUTPUT)/mongoman-${VERSION}-linux-$$arch=/usr/bin/mongoman" \
 						packaging/pacman/mongoman.service=/usr/lib/systemd/system/mongoman.service \
 						README.md=/usr/share/doc/mongoman/README.md \
 						LICENSE=/usr/share/doc/mongoman/LICENSE \
-						-p $(OUTPUT)/$(APP)-$(VERSION)-1-$(if $(filter amd64,$$arch),x86_64,aarch64).pkg.tar.zst || true; \
+						-p $(OUTPUT)/mongoman-${VERSION}-1-$(if $(filter amd64,$$arch),x86_64,aarch64).pkg.tar.zst || true; \
 					;; \
 			esac; \
 		done; \
